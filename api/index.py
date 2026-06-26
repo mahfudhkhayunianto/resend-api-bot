@@ -4,23 +4,22 @@ import os
 
 app = Flask(__name__)
 
-# Konfigurasi API Key Resend
+# Pastikan API Key sudah benar di Environment Variables
 resend.api_key = os.environ.get("RESEND_API_KEY")
 
 @app.route('/api/send', methods=['POST'])
 def send_email():
     try:
         data = request.json
-        if not data or 'nomor' not in data:
-            return jsonify({"error": "No nomor provided"}), 400
-        
-        nomor = data['nomor']
+        nomor = data.get('nomor')
+        subject = data.get('subject', "Question about WhatsApp 'Login not available'")
+        body = data.get('body', f"Banding untuk nomor: {nomor}")
         
         params = {
-            "from": "noreply@mktools.my.id",
+            "from": "noreply@mktools.my.id", # Gunakan domain yang sudah verified
             "to": "support@support.whatsapp.com",
-            "subject": "Question about WhatsApp 'Login not available'",
-            "html": f"<p>Banding untuk nomor: {nomor}</p>"
+            "subject": subject,
+            "html": f"<p>{body}</p>"
         }
         
         resend.Emails.send(params)
