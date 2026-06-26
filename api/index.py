@@ -9,6 +9,9 @@ resend.api_key = os.environ.get("RESEND_API_KEY")
 
 @app.route('/api/send', methods=['POST'])
 def send_email():
+    data = request.json
+    api_key = data.get('api_key') # <--- Diambil dari bot!
+    resend.api_key = api_key      # <--- Diterapkan secara dinamis
     try:
         data = request.json
         nomor = data.get('nomor')
