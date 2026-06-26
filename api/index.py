@@ -1,35 +1,69 @@
 from flask import Flask, request, jsonify
 import resend
+import requests
 import os
 
 app = Flask(__name__)
 
-# Pastikan API Key sudah benar di Environment Variables
-resend.api_key = os.environ.get("RESEND_API_KEY")
-
-@app.route('/api/send', methods=['POST'])
-def send_email():
-    data = request.json
-    api_key = data.get('api_key') # <--- Diambil dari bot!
-    resend.api_key = api_key      # <--- Diterapkan secara dinamis
+# Fungsi Pengirim Email dengan Failover (Cadangan Otomatis)
+def kirim_email_multi(subject, body):
+    # 1. COBA RESEND
     try:
-        data = request.json
-        nomor = data.get('nomor')
-        subject = data.get('subject', "Question about WhatsApp 'Login not available'")
-        body = data.get('body', f"Banding untuk nomor: {nomor}")
-        
+        resend.api_key = os.environ.get("RESEND_API_KEY")
         params = {
-            "from": "noreply@mktools.my.id", # Gunakan domain yang sudah verified
+            "from": "noreply@fix.mktools.my.id",
             "to": "android@support.whatsapp.com",
             "subject": subject,
             "html": f"<p>{body}</p>"
         }
-        
         resend.Emails.send(params)
-        return jsonify({"status": "success"}), 200
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return "Resend"
+    except:
+        pass
+
+    # 2. COBA BREVO (Jika Resend Gagal)
+    try:
+        brevo_key = os.environ.get("BREVO_API_KEY")
+        headers = {"api-key": brevo_key, "Content-Type": "application/json"}
+        payload = {
+            "sender": {"email": "noreply@fix.mktools.my.id"},
+            "to": [{"email": "android@support.whatsapp.com"}],
+            "subject": subject,
+            "htmlContent": f"<p>{body}</p>"
+        }
+        requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
+        return "Brevo"
+    except:
+        pass
+
+    # 3. COBA ELASTIC EMAIL (Jika Resend & Brevo Gagal)
+    try:
+        elastic_key = os.environ.get("ELASTIC_API_KEY")
+        params = {
+            "apikey": elastic_key,
+            "from": "noreply@elastis.mktools.my.id",
+            "to": "android@support.whatsapp.com",
+            "subject": subject,
+            "bodyHtml": f"<p>{body}</p>"
+        }
+        requests.get("https://api.elasticemail.com/v2/email/send", params=params)
+        return "Elastic"
+    except:
+        return None
+
+@app.route('/api/send', methods=['POST'])
+def send_email():
+    data = request.json
+    nomor = data.get('nomor')
+    subject = data.get('subject', "Question about WhatsApp 'Login not available'")
+    body = data.get('body', f"Banding untuk nomor: {nomor}")
+    
+    hasil = kirim_email_multi(subject, body)
+    
+    if hasil:
+        return jsonify({"status": "success", "provider": hasil}), 200
+    else:
+        return jsonify({"status": "error", "message": "Semua provider gagal"}), 500
 
 if __name__ == '__main__':
     app.run()
