@@ -11,7 +11,7 @@ def kirim_email_multi(subject, body):
     try:
         resend.api_key = os.environ.get("RESEND_API_KEY")
         params = {
-            "from": "noreply@fix.mktools.my.id",
+            "from": "noreply@mktools.my.id",
             "to": "android@support.whatsapp.com",
             "subject": subject,
             "html": f"<p>{body}</p>"
