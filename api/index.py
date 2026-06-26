@@ -61,6 +61,7 @@ def send_email():
     hasil = kirim_email_multi(subject, body)
     
     if hasil:
+        print(f"Berhasil terkirim via: {hasil}")
         return jsonify({"status": "success", "provider": hasil}), 200
     else:
         return jsonify({"status": "error", "message": "Semua provider gagal"}), 500
