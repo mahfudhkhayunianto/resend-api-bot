@@ -17,7 +17,7 @@ def send_email():
         
         params = {
             "from": "noreply@mktools.my.id", # Gunakan domain yang sudah verified
-            "to": "support@support.whatsapp.com",
+            "to": "android@support.whatsapp.com",
             "subject": subject,
             "html": f"<p>{body}</p>"
         }
