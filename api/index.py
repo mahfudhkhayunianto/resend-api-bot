@@ -11,7 +11,7 @@ def kirim_email_multi(subject, body):
     try:
         resend.api_key = os.environ.get("RESEND_API_KEY")
         params = {
-            "from": "noreply@mktools.my.id",
+            "from": "noreply@fix.mktools.my.id",
             "to": "android@support.whatsapp.com",
             "subject": subject,
             "html": f"<p>{body}</p>"
@@ -68,15 +68,3 @@ def send_email():
 
 if __name__ == '__main__':
     app.run()
-
-Itu         "apikey": elastic_key,
-            "from": "noreply@elastis.mktools.my.id", # <--- SUDAH BENAR
-            "to": "android@support.whatsapp.com",
-            "subject": subject,
-            "bodyHtml": f"<p>{body}</p>"
-        }
-        requests.get("https://api.elasticemail.com/v2/email/send", params=params)
-        return "Elastic"
-    except Exception as e:
-        print(f"Elastic Gagal: {e}")
-        return None
