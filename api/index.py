@@ -13,13 +13,13 @@ def send_email():
         data = request.json
         nomor = data.get('nomor')
         
-        # Contoh pengiriman email Resend
-        params = {
-            "from": "onboarding@resend.dev",
-            "to": "support@support.whatsapp.com",
-            "subject": "Question about WhatsApp",
-            "html": f"<p>Banding untuk nomor: {nomor}</p>"
-        }
+        # Ubah bagian 'from' menjadi email yang menggunakan domain Anda
+params = {
+    "from": "noreply@mktools.my.id", # Sesuaikan dengan domain yang sudah verified
+    "to": "support@support.whatsapp.com",
+    "subject": "Question about WhatsApp 'Login not available'",
+    "html": f"<p>Banding untuk nomor: {nomor}</p>"
+}
         resend.Emails.send(params)
         
         return jsonify({"status": "success"}), 200
