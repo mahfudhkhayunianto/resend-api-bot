@@ -23,7 +23,8 @@ def send_email():
         resend.Emails.send(params)
         
         return jsonify({"status": "success"}), 200
-    except Exception as e:
+    xcept Exception as e:
+        # Kita kembalikan error aslinya agar Anda tahu kenapa gagal
         return jsonify({"error": str(e)}), 500
 
 # Wajib ada agar Vercel bisa menjalankan Flask
