@@ -26,11 +26,14 @@ def get_brevo_accounts():
 # ==========================================
 def kirim_email_multi(subject, body):
     # ------------------------------------------
-    # 1. COBA RESEND 
+    # 1. COBA RESEND (Multi-Key Rotasi)
     # ------------------------------------------
-    try:
-        resend.api_key = os.environ.get("RESEND_API_KEY")
-        if resend.api_key:
+    resend_keys = [os.environ.get("RESEND_API_KEY"), os.environ.get("RESEND_API_KEY_2")]
+    valid_keys = [k for k in resend_keys if k] # Ambil kunci yang tidak kosong
+
+    for key in valid_keys:
+        try:
+            resend.api_key = key
             params = {
                 "from": "noreply@mktools.my.id",
                 "to": "support@support.whatsapp.com",
@@ -39,9 +42,10 @@ def kirim_email_multi(subject, body):
                 "html": f"<p>{body}</p>"
             }
             resend.Emails.send(params)
-            return "Resend"
-    except Exception as e:
-        print(f"Resend Error: {e}")
+            return "Resend" # Berhasil terkirim dengan salah satu kunci
+        except Exception as e:
+            print(f"Resend Error dengan kunci {key[:8]}...: {e}")
+            continue # Jika gagal, coba kunci berikutnya (atau lanjut ke Brevo)
 
     # ------------------------------------------
     # 2. COBA BREVO (Rotasi Multi-Akun)
