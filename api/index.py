@@ -5,7 +5,9 @@ import os
 
 app = Flask(__name__)
 
-# Fungsi untuk mengambil daftar akun Brevo dari Vercel
+# ==========================================
+# FUNGSI 1: Mengambil daftar akun Brevo dari Vercel
+# ==========================================
 def get_brevo_accounts():
     raw_config = os.environ.get("BREVO_ACCOUNTS", "")
     accounts = []
@@ -17,11 +19,14 @@ def get_brevo_accounts():
                 accounts.append({"key": key.strip(), "sender": sender.strip()})
     return accounts
 
-# Fungsi Pengirim Email dengan Super Failover (Resend -> Brevo 1 -> Brevo 2 -> Elastic)
+# ==========================================
+# FUNGSI 2: Pengirim Email dengan Super Failover 
+# Urutan: Resend -> Brevo (Rotasi Multi-Akun) -> Elastic
+# ==========================================
 def kirim_email_multi(subject, body):
-    # ==========================================
+    # ------------------------------------------
     # 1. COBA RESEND (Domain Utama: mktools.my.id)
-    # ==========================================
+    # ------------------------------------------
     try:
         resend.api_key = os.environ.get("RESEND_API_KEY")
         if resend.api_key:
@@ -36,9 +41,9 @@ def kirim_email_multi(subject, body):
     except Exception as e:
         print(f"Resend Error: {e}")
 
-    # ==========================================
+    # ------------------------------------------
     # 2. COBA BREVO (Rotasi Multi-Akun)
-    # ==========================================
+    # ------------------------------------------
     brevo_accounts = get_brevo_accounts()
     for acc in brevo_accounts:
         try:
@@ -50,18 +55,20 @@ def kirim_email_multi(subject, body):
                 "htmlContent": f"<p>{body}</p>"
             }
             response = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
+            
             if response.status_code == 201:
                 return f"Brevo ({acc['sender'].split('@')[0]})" # Berhasil, hentikan pencarian
             else:
+                # Log khusus versi baru untuk Vercel
                 print(f"Brevo Failed via {acc['sender']}: {response.status_code} - {response.text}")
                 continue # Gagal/Limit, lanjut ke akun Brevo berikutnya
         except Exception as e:
             print(f"Brevo Exception via {acc['sender']}: {e}")
             continue # Error, lanjut ke akun Brevo berikutnya
 
-    # ==========================================
+    # ------------------------------------------
     # 3. COBA ELASTIC EMAIL (Domain: elastis.mktools.my.id)
-    # ==========================================
+    # ------------------------------------------
     try:
         elastic_key = os.environ.get("ELASTIC_API_KEY")
         if elastic_key:
@@ -72,7 +79,7 @@ def kirim_email_multi(subject, body):
                 "subject": subject,
                 "bodyHtml": f"<p>{body}</p>"
             }
-            response = requests.get("https://api.api.elasticemail.com/v2/email/send", params=params)
+            response = requests.get("https://api.elasticemail.com/v2/email/send", params=params)
             if response.status_code == 200:
                 return "Elastic"
             else:
@@ -83,6 +90,9 @@ def kirim_email_multi(subject, body):
     # Jika SEMUA provider dari atas sampai bawah gagal/limit
     return None
 
+# ==========================================
+# ROUTE: Endpoint API untuk Bot Telegram
+# ==========================================
 @app.route('/api/send', methods=['POST'])
 def send_email():
     data = request.json
