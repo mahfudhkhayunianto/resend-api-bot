@@ -5,44 +5,49 @@ import os
 
 app = Flask(__name__)
 
-# GANTI DENGAN EMAIL GMAIL ASLI BOSKU
+# GANTI DENGAN EMAIL GMAIL ASLI BOSKU UNTUK TERIMA BALASAN
 EMAIL_PENERIMA_BALASAN = "mahfudhkhayunianto@gmail.com"
+# Email Default jika Bosku tidak menuliskan sender di Vercel
+EMAIL_DEFAULT = "noreply@mktools.my.id"
 
-# Fungsi Pengirim Email dengan Failover & Rotasi Domain
+# FUNGSI AUTO-DETECT KONFIGURASI DARI VERCEL
+def get_resend_configs():
+    configs = []
+    # Loop semua variabel yang diawali RESEND_CONFIG_
+    for env_key, env_val in os.environ.items():
+        if env_key.startswith("RESEND_CONFIG_"):
+            # Jika ada tanda |, formatnya: API_KEY|sender
+            if '|' in env_val:
+                parts = env_val.split('|')
+                configs.append({"key": parts[0].strip(), "sender": parts[1].strip()})
+            else:
+                # Jika hanya API_KEY, pakai sender default
+                configs.append({"key": env_val.strip(), "sender": EMAIL_DEFAULT})
+    return configs
+
 def kirim_email_multi(subject, body):
+    # 1. COBA RESEND (Otomatis dari Vercel Config)
+    resend_configs = get_resend_configs()
     
-    # 1. COBA RESEND (Rotasi 3 Domain)
-    # Kita buat list konfigurasi. Jika key kosong (None), loop otomatis melewati itu.
-    resend_configs = [
-        {"key": os.environ.get("RESEND_API_KEY"), "sender": "noreply@mktools.my.id"},
-        {"key": os.environ.get("RESEND_API_KEY_2"), "sender": "noreply@mkproject.mktools.my.id"},
-        {"key": os.environ.get("RESEND_API_KEY_3"), "sender": "noreply@mktools.biz.id"}
-    ]
-
     for config in resend_configs:
         key = config.get("key")
         sender = config.get("sender")
-        
-        # Cek apakah key ada dan tidak None/Kosong agar tidak error
         if key:
             try:
                 resend.api_key = key
                 params = {
-                    "from": sender, 
+                    "from": sender,
                     "to": "android@support.whatsapp.com",
                     "reply_to": EMAIL_PENERIMA_BALASAN,
                     "subject": subject,
                     "html": f"<p>{body}</p>"
                 }
                 resend.Emails.send(params)
-                print(f"DEBUG: Sukses kirim via {sender}") # Log ini akan muncul di Vercel
                 return f"Resend ({sender})"
             except Exception as e:
                 print(f"Resend Error via {sender}: {e}")
-                # Jika error (misal limit), loop lanjut ke config berikutnya
-        else:
-            print(f"DEBUG: Key untuk {sender} tidak ditemukan di Vercel, skip...")
-
+                continue
+    
     # 2. COBA BREVO
     brevo_key = os.environ.get("BREVO_API_KEY")
     if brevo_key:
@@ -91,12 +96,13 @@ def send_email():
     hasil = kirim_email_multi(subject, body)
     
     if hasil:
-        print(f"[{nomor}] Berhasil Terkirim -> {hasil}")
-        return jsonify({"status": "success", "provider": hasil}), 200
+        # Tampilan bersih tanpa detail dalam kurung
+        tampilan = hasil.split(' (')[0]
+        print(f"[{nomor}] Berhasil Terkirim -> {tampilan}")
+        return jsonify({"status": "success", "provider": tampilan}), 200
     else:
         print(f"[{nomor}] GAGAL Terkirim -> Semua provider error/limit")
         return jsonify({"status": "error", "message": "Semua provider gagal"}), 500
 
-# Vercel butuh app instance di top-level
 if __name__ == '__main__':
     app.run()
