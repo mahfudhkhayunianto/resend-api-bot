@@ -31,18 +31,18 @@ def kirim_email_multi(subject, body):
     # Menghubungkan kunci dengan email pengirim yang benar agar tidak ditolak Resend
     resend_configs = [
         {"key": os.environ.get("RESEND_API_KEY"), "sender": "noreply@mktools.my.id"},
-        {"key": os.environ.get("RESEND_API_KEY_2"), "sender": "noreply@mkproject.mktools.my.id"}
+        {"key": os.environ.get("RESEND_API_KEY_2"), "sender": "noreply@mkproject.mktools.my.id"},
         {"key": os.environ.get("RESEND_API_KEY_3"), "sender": "noreply@mktools.biz.id"}
     ]
 
+    print(f"DEBUG: Total konfigurasi ditemukan: {len(resend_configs)}")
+
     for config in resend_configs:
-        key = config["key"]
-        sender = config["sender"]
-        
-        # --- LOG PELACAK ---
-        print(f"DEBUG: Mencoba domain {sender}, API Key terdeteksi: {'YA' if key else 'TIDAK'}")
+        key = config.get("key")
+        sender = config.get("sender")
         
         if key:
+            print(f"DEBUG: Mencoba domain {sender} dengan Key: {key[:5]}****") # Menampilkan 5 digit pertama key
             try:
                 resend.api_key = key
                 params = {
@@ -53,11 +53,13 @@ def kirim_email_multi(subject, body):
                     "html": f"<p>{body}</p>"
                 }
                 resend.Emails.send(params)
-                return f"Resend"
+                print(f"Berhasil terkirim via: {sender}")
+                return f"Resend ({sender})"
             except Exception as e:
-                print(f"Resend Error (Domain {sender}): {e}")
-                continue # Ini akan memaksa bot pindah ke domain berikutnya
-
+                print(f"Resend Error via {sender}: {e}")
+                # Loop akan berlanjut ke config berikutnya
+        else:
+            print(f"DEBUG: Domain {sender} dilewati karena API KEY KOSONG/TIDAK ADA di Vercel.")
     # ------------------------------------------
     # 2. COBA BREVO (Rotasi Multi-Akun)
     # ------------------------------------------
