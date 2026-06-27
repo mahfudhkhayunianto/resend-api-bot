@@ -5,14 +5,14 @@ import os
 
 app = Flask(__name__)
 
-# Fungsi Pengirim Email dengan Failover (Cadangan Otomatis)
+# Fungsi Pengirim Email dengan Failover
 def kirim_email_multi(subject, body):
-    # 1. COBA RESEND
+    # 1. COBA RESEND (Domain Utama)
     try:
         resend.api_key = os.environ.get("RESEND_API_KEY")
         params = {
             "from": "noreply@mktools.my.id",
-            "to": "support@support.whatsapp.com",
+            "to": "android@support.whatsapp.com",
             "subject": subject,
             "html": f"<p>{body}</p>"
         }
@@ -21,19 +21,18 @@ def kirim_email_multi(subject, body):
     except Exception as e:
         print(f"Resend Error: {e}")
 
-    # 2. COBA BREVO (Jika Resend Gagal)
+    # 2. COBA BREVO (Domain FIX)
     try:
         brevo_key = os.environ.get("BREVO_API_KEY")
         headers = {"api-key": brevo_key, "Content-Type": "application/json"}
         payload = {
             "sender": {"email": "noreply@fix.mktools.my.id"},
-            "to": [{"email": "support@support.whatsapp.com"}],
+            "to": [{"email": "android@support.whatsapp.com"}],
             "subject": subject,
             "htmlContent": f"<p>{body}</p>"
         }
         response = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
         
-        # Harus cek status code, karena requests tidak otomatis masuk 'except' kalau error 4xx/5xx
         if response.status_code == 201:
             return "Brevo"
         else:
@@ -41,13 +40,13 @@ def kirim_email_multi(subject, body):
     except Exception as e:
         print(f"Brevo Exception: {e}")
 
-    # 3. COBA ELASTIC EMAIL (Jika Resend & Brevo Gagal)
+    # 3. COBA ELASTIC EMAIL (Domain Elastis)
     try:
         elastic_key = os.environ.get("ELASTIC_API_KEY")
         params = {
             "apikey": elastic_key,
             "from": "noreply@elastis.mktools.my.id",
-            "to": "support@support.whatsapp.com",
+            "to": "android@support.whatsapp.com",
             "subject": subject,
             "bodyHtml": f"<p>{body}</p>"
         }
@@ -65,16 +64,19 @@ def kirim_email_multi(subject, body):
 @app.route('/api/send', methods=['POST'])
 def send_email():
     data = request.json
-    nomor = data.get('nomor')
+    nomor = data.get('nomor', 'UNKNOWN')
     subject = data.get('subject', "Question about WhatsApp 'Login not available'")
     body = data.get('body', f"Banding untuk nomor: {nomor}")
     
     hasil = kirim_email_multi(subject, body)
     
     if hasil:
-        print(f"Berhasil terkirim via: {hasil}")
+        # LOG CUSTOM SESUAI PERMINTAAN BOSKU
+        print(f"[{nomor}] Berhasil Terkirim -> {hasil}")
         return jsonify({"status": "success", "provider": hasil}), 200
     else:
+        # LOG CUSTOM JIKA SEMUA PROVIDER GAGAL
+        print(f"[{nomor}] GAGAL Terkirim -> Semua provider error/limit")
         return jsonify({"status": "error", "message": "Semua provider gagal"}), 500
 
 if __name__ == '__main__':
