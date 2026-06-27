@@ -5,6 +5,9 @@ import os
 
 app = Flask(__name__)
 
+# GANTI DENGAN EMAIL GMAIL ASLI BOSKU UNTUK MENERIMA BALASAN WHATSAPP
+EMAIL_PENERIMA_BALASAN = "mahfudhkhayunianto@gmail.com" 
+
 # ==========================================
 # FUNGSI 1: Mengambil daftar akun Brevo dari Vercel
 # ==========================================
@@ -12,7 +15,6 @@ def get_brevo_accounts():
     raw_config = os.environ.get("BREVO_ACCOUNTS", "")
     accounts = []
     if raw_config:
-        # Memisahkan berdasarkan koma (antar akun)
         for item in raw_config.split(','):
             if '|' in item:
                 key, sender = item.split('|')
@@ -21,18 +23,18 @@ def get_brevo_accounts():
 
 # ==========================================
 # FUNGSI 2: Pengirim Email dengan Super Failover 
-# Urutan: Resend -> Brevo (Rotasi Multi-Akun) -> Elastic
 # ==========================================
 def kirim_email_multi(subject, body):
     # ------------------------------------------
-    # 1. COBA RESEND (Domain Utama: mktools.my.id)
+    # 1. COBA RESEND 
     # ------------------------------------------
     try:
         resend.api_key = os.environ.get("RESEND_API_KEY")
         if resend.api_key:
             params = {
                 "from": "noreply@mktools.my.id",
-                "to": "support@support.whatsapp.com", # <--- SUDAH DIUBAH
+                "to": "support@support.whatsapp.com",
+                "reply_to": EMAIL_PENERIMA_BALASAN, # <--- HACK BALASAN OTOMATIS
                 "subject": subject,
                 "html": f"<p>{body}</p>"
             }
@@ -50,7 +52,8 @@ def kirim_email_multi(subject, body):
             headers = {"api-key": acc['key'], "Content-Type": "application/json"}
             payload = {
                 "sender": {"email": acc['sender']},
-                "to": [{"email": "support@support.whatsapp.com"}], # <--- SUDAH DIUBAH
+                "to": [{"email": "support@support.whatsapp.com"}],
+                "replyTo": {"email": EMAIL_PENERIMA_BALASAN}, # <--- HACK BALASAN OTOMATIS
                 "subject": subject,
                 "htmlContent": f"<p>{body}</p>"
             }
@@ -66,7 +69,7 @@ def kirim_email_multi(subject, body):
             continue 
 
     # ------------------------------------------
-    # 3. COBA ELASTIC EMAIL (Domain: elastis.mktools.my.id)
+    # 3. COBA ELASTIC EMAIL 
     # ------------------------------------------
     try:
         elastic_key = os.environ.get("ELASTIC_API_KEY")
@@ -74,7 +77,8 @@ def kirim_email_multi(subject, body):
             params = {
                 "apikey": elastic_key,
                 "from": "noreply@elastis.mktools.my.id",
-                "to": "support@support.whatsapp.com", # <--- SUDAH DIUBAH
+                "to": "support@support.whatsapp.com",
+                "replyTo": EMAIL_PENERIMA_BALASAN, # <--- HACK BALASAN OTOMATIS
                 "subject": subject,
                 "bodyHtml": f"<p>{body}</p>"
             }
@@ -89,7 +93,7 @@ def kirim_email_multi(subject, body):
     return None
 
 # ==========================================
-# ROUTE: Endpoint API untuk Bot Telegram
+# ROUTE: Endpoint API
 # ==========================================
 @app.route('/api/send', methods=['POST'])
 def send_email():
