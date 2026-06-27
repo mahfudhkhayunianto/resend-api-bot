@@ -26,26 +26,34 @@ def get_brevo_accounts():
 # ==========================================
 def kirim_email_multi(subject, body):
     # ------------------------------------------
-    # 1. COBA RESEND (Multi-Key Rotasi)
+    # 1. COBA RESEND (Multi-Key dengan Domain Mapping)
     # ------------------------------------------
-    resend_keys = [os.environ.get("RESEND_API_KEY"), os.environ.get("RESEND_API_KEY_2")]
-    valid_keys = [k for k in resend_keys if k] # Ambil kunci yang tidak kosong
+    # Menghubungkan kunci dengan email pengirim yang benar agar tidak ditolak Resend
+    resend_configs = [
+        {"key": os.environ.get("RESEND_API_KEY"), "sender": "noreply@mktools.my.id"},
+        {"key": os.environ.get("RESEND_API_KEY_2"), "sender": "noreply@mkproject.mktools.my.id"}
+    ]
 
-    for key in valid_keys:
-        try:
-            resend.api_key = key
-            params = {
-                "from": "noreply@mktools.my.id",
-                "to": "support@support.whatsapp.com",
-                "reply_to": EMAIL_PENERIMA_BALASAN, # <--- HACK BALASAN OTOMATIS
-                "subject": subject,
-                "html": f"<p>{body}</p>"
-            }
-            resend.Emails.send(params)
-            return "Resend" # Berhasil terkirim dengan salah satu kunci
-        except Exception as e:
-            print(f"Resend Error dengan kunci {key[:8]}...: {e}")
-            continue # Jika gagal, coba kunci berikutnya (atau lanjut ke Brevo)
+    for config in resend_configs:
+        key = config["key"]
+        sender = config["sender"]
+        
+        # Hanya jalankan jika kunci API ada
+        if key:
+            try:
+                resend.api_key = key
+                params = {
+                    "from": sender, 
+                    "to": "support@support.whatsapp.com",
+                    "reply_to": EMAIL_PENERIMA_BALASAN,
+                    "subject": subject,
+                    "html": f"<p>{body}</p>"
+                }
+                resend.Emails.send(params)
+                return "Resend" # Jika berhasil, kirim sukses dan berhenti di sini
+            except Exception as e:
+                print(f"Resend Error (Domain {sender}): {e}")
+                continue # Jika gagal, coba kunci berikutnya
 
     # ------------------------------------------
     # 2. COBA BREVO (Rotasi Multi-Akun)
@@ -57,7 +65,7 @@ def kirim_email_multi(subject, body):
             payload = {
                 "sender": {"email": acc['sender']},
                 "to": [{"email": "support@support.whatsapp.com"}],
-                "replyTo": {"email": EMAIL_PENERIMA_BALASAN}, # <--- HACK BALASAN OTOMATIS
+                "replyTo": {"email": EMAIL_PENERIMA_BALASAN},
                 "subject": subject,
                 "htmlContent": f"<p>{body}</p>"
             }
@@ -82,7 +90,7 @@ def kirim_email_multi(subject, body):
                 "apikey": elastic_key,
                 "from": "noreply@elastis.mktools.my.id",
                 "to": "support@support.whatsapp.com",
-                "replyTo": EMAIL_PENERIMA_BALASAN, # <--- HACK BALASAN OTOMATIS
+                "replyTo": EMAIL_PENERIMA_BALASAN,
                 "subject": subject,
                 "bodyHtml": f"<p>{body}</p>"
             }
