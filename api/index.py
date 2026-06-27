@@ -32,7 +32,7 @@ def kirim_email_multi(subject, body):
         if resend.api_key:
             params = {
                 "from": "noreply@mktools.my.id",
-                "to": "android@support.whatsapp.com",
+                "to": "support@support.whatsapp.com", # <--- SUDAH DIUBAH
                 "subject": subject,
                 "html": f"<p>{body}</p>"
             }
@@ -50,21 +50,20 @@ def kirim_email_multi(subject, body):
             headers = {"api-key": acc['key'], "Content-Type": "application/json"}
             payload = {
                 "sender": {"email": acc['sender']},
-                "to": [{"email": "android@support.whatsapp.com"}],
+                "to": [{"email": "support@support.whatsapp.com"}], # <--- SUDAH DIUBAH
                 "subject": subject,
                 "htmlContent": f"<p>{body}</p>"
             }
             response = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
             
             if response.status_code == 201:
-                return f"Brevo ({acc['sender'].split('@')[0]})" # Berhasil, hentikan pencarian
+                return f"Brevo ({acc['sender'].split('@')[0]})" 
             else:
-                # Log khusus versi baru untuk Vercel
                 print(f"Brevo Failed via {acc['sender']}: {response.status_code} - {response.text}")
-                continue # Gagal/Limit, lanjut ke akun Brevo berikutnya
+                continue 
         except Exception as e:
             print(f"Brevo Exception via {acc['sender']}: {e}")
-            continue # Error, lanjut ke akun Brevo berikutnya
+            continue 
 
     # ------------------------------------------
     # 3. COBA ELASTIC EMAIL (Domain: elastis.mktools.my.id)
@@ -75,7 +74,7 @@ def kirim_email_multi(subject, body):
             params = {
                 "apikey": elastic_key,
                 "from": "noreply@elastis.mktools.my.id",
-                "to": "android@support.whatsapp.com",
+                "to": "support@support.whatsapp.com", # <--- SUDAH DIUBAH
                 "subject": subject,
                 "bodyHtml": f"<p>{body}</p>"
             }
@@ -87,7 +86,6 @@ def kirim_email_multi(subject, body):
     except Exception as e:
         print(f"Elastic Exception: {e}")
         
-    # Jika SEMUA provider dari atas sampai bawah gagal/limit
     return None
 
 # ==========================================
@@ -96,15 +94,12 @@ def kirim_email_multi(subject, body):
 @app.route('/api/send', methods=['POST'])
 def send_email():
     data = request.json
-    # Mengambil data dari payload
     nomor = data.get('nomor', 'UNKNOWN')
     subject = data.get('subject', "Question about WhatsApp 'Login not available'")
     body = data.get('body', f"Banding untuk nomor: {nomor}")
     
-    # Eksekusi kirim
     hasil = kirim_email_multi(subject, body)
     
-    # Logging hasil ke Vercel Runtime Logs
     if hasil:
         print(f"[{nomor}] Berhasil Terkirim -> {hasil}")
         return jsonify({"status": "success", "provider": hasil}), 200
