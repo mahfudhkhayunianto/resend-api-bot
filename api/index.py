@@ -5,59 +5,79 @@ import os
 
 app = Flask(__name__)
 
-# Fungsi Pengirim Email dengan Failover
+# GANTI DENGAN EMAIL GMAIL ASLI BOSKU
+EMAIL_PENERIMA_BALASAN = "mahfudhkhayunianto@gmail.com"
+
+# Fungsi Pengirim Email dengan Failover & Rotasi Domain
 def kirim_email_multi(subject, body):
-    # 1. COBA RESEND (Domain Utama)
-    try:
-        resend.api_key = os.environ.get("RESEND_API_KEY")
-        params = {
-            "from": "noreply@mktools.my.id",
-            "to": "android@support.whatsapp.com",
-            "subject": subject,
-            "html": f"<p>{body}</p>"
-        }
-        resend.Emails.send(params)
-        return "Resend"
-    except Exception as e:
-        print(f"Resend Error: {e}")
+    
+    # 1. COBA RESEND (Rotasi 3 Domain)
+    # Kita buat list konfigurasi. Jika key kosong (None), loop otomatis melewati itu.
+    resend_configs = [
+        {"key": os.environ.get("RESEND_API_KEY"), "sender": "noreply@mktools.my.id"},
+        {"key": os.environ.get("RESEND_API_KEY_2"), "sender": "noreply@mkproject.mktools.my.id"},
+        {"key": os.environ.get("RESEND_API_KEY_3"), "sender": "noreply@mktools.biz.id"}
+    ]
 
-    # 2. COBA BREVO (Domain FIX)
-    try:
-        brevo_key = os.environ.get("BREVO_API_KEY")
-        headers = {"api-key": brevo_key, "Content-Type": "application/json"}
-        payload = {
-            "sender": {"email": "noreply@fix.mktools.my.id"},
-            "to": [{"email": "android@support.whatsapp.com"}],
-            "subject": subject,
-            "htmlContent": f"<p>{body}</p>"
-        }
-        response = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
+    for config in resend_configs:
+        key = config.get("key")
+        sender = config.get("sender")
         
-        if response.status_code == 201:
-            return "Brevo"
+        # Cek apakah key ada dan tidak None/Kosong agar tidak error
+        if key:
+            try:
+                resend.api_key = key
+                params = {
+                    "from": sender, 
+                    "to": "android@support.whatsapp.com",
+                    "reply_to": EMAIL_PENERIMA_BALASAN,
+                    "subject": subject,
+                    "html": f"<p>{body}</p>"
+                }
+                resend.Emails.send(params)
+                print(f"DEBUG: Sukses kirim via {sender}") # Log ini akan muncul di Vercel
+                return f"Resend ({sender})"
+            except Exception as e:
+                print(f"Resend Error via {sender}: {e}")
+                # Jika error (misal limit), loop lanjut ke config berikutnya
         else:
-            print(f"Brevo Failed: {response.status_code} - {response.text}")
-    except Exception as e:
-        print(f"Brevo Exception: {e}")
+            print(f"DEBUG: Key untuk {sender} tidak ditemukan di Vercel, skip...")
 
-    # 3. COBA ELASTIC EMAIL (Domain Elastis)
-    try:
-        elastic_key = os.environ.get("ELASTIC_API_KEY")
-        params = {
-            "apikey": elastic_key,
-            "from": "noreply@elastis.mktools.my.id",
-            "to": "android@support.whatsapp.com",
-            "subject": subject,
-            "bodyHtml": f"<p>{body}</p>"
-        }
-        response = requests.get("https://api.elasticemail.com/v2/email/send", params=params)
-        
-        if response.status_code == 200:
-            return "Elastic"
-        else:
-            print(f"Elastic Failed: {response.status_code} - {response.text}")
-    except Exception as e:
-        print(f"Elastic Exception: {e}")
+    # 2. COBA BREVO
+    brevo_key = os.environ.get("BREVO_API_KEY")
+    if brevo_key:
+        try:
+            headers = {"api-key": brevo_key, "Content-Type": "application/json"}
+            payload = {
+                "sender": {"email": "noreply@fix.mktools.my.id"},
+                "to": [{"email": "android@support.whatsapp.com"}],
+                "replyTo": {"email": EMAIL_PENERIMA_BALASAN},
+                "subject": subject,
+                "htmlContent": f"<p>{body}</p>"
+            }
+            response = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
+            if response.status_code == 201:
+                return "Brevo"
+        except Exception as e:
+            print(f"Brevo Exception: {e}")
+
+    # 3. COBA ELASTIC EMAIL
+    elastic_key = os.environ.get("ELASTIC_API_KEY")
+    if elastic_key:
+        try:
+            params = {
+                "apikey": elastic_key,
+                "from": "noreply@elastis.mktools.my.id",
+                "to": "android@support.whatsapp.com",
+                "replyTo": EMAIL_PENERIMA_BALASAN,
+                "subject": subject,
+                "bodyHtml": f"<p>{body}</p>"
+            }
+            response = requests.get("https://api.elasticemail.com/v2/email/send", params=params)
+            if response.status_code == 200:
+                return "Elastic"
+        except Exception as e:
+            print(f"Elastic Exception: {e}")
         
     return None
 
@@ -71,13 +91,12 @@ def send_email():
     hasil = kirim_email_multi(subject, body)
     
     if hasil:
-        # LOG CUSTOM SESUAI PERMINTAAN BOSKU
         print(f"[{nomor}] Berhasil Terkirim -> {hasil}")
         return jsonify({"status": "success", "provider": hasil}), 200
     else:
-        # LOG CUSTOM JIKA SEMUA PROVIDER GAGAL
         print(f"[{nomor}] GAGAL Terkirim -> Semua provider error/limit")
         return jsonify({"status": "error", "message": "Semua provider gagal"}), 500
 
+# Vercel butuh app instance di top-level
 if __name__ == '__main__':
     app.run()
