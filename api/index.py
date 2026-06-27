@@ -53,7 +53,6 @@ def kirim_email_multi(subject, body):
                     "html": f"<p>{body}</p>"
                 }
                 resend.Emails.send(params)
-                print(f"Berhasil terkirim via: {sender}") # Log sukses
                 return f"Resend"
             except Exception as e:
                 print(f"Resend Error (Domain {sender}): {e}")
