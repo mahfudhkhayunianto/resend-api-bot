@@ -54,7 +54,7 @@ def kirim_email_multi(subject, body):
                 }
                 resend.Emails.send(params)
                 print(f"Berhasil terkirim via: {sender}") # Log sukses
-                return f"Resend ({sender})"
+                return f"Resend"
             except Exception as e:
                 print(f"Resend Error (Domain {sender}): {e}")
                 continue # Ini akan memaksa bot pindah ke domain berikutnya
