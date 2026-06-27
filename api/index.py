@@ -50,7 +50,7 @@ def kirim_email_multi(subject, body):
                     "html": f"<p>{body}</p>"
                 }
                 resend.Emails.send(params)
-                return "Resend" # Jika berhasil, kirim sukses dan berhenti di sini
+                return f"Resend ({sender})" # Ubah dari "Resend" jadi ini
             except Exception as e:
                 print(f"Resend Error (Domain {sender}): {e}")
                 continue # Jika gagal, coba kunci berikutnya
@@ -96,7 +96,7 @@ def kirim_email_multi(subject, body):
             }
             response = requests.get("https://api.elasticemail.com/v2/email/send", params=params)
             if response.status_code == 200:
-                return "Elastic"
+                return "Elastic (noreply@elastis.mktools.my.id)"
             else:
                 print(f"Elastic Failed: {response.status_code} - {response.text}")
     except Exception as e:
