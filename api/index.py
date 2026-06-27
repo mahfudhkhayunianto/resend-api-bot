@@ -18,8 +18,8 @@ def kirim_email_multi(subject, body):
         }
         resend.Emails.send(params)
         return "Resend"
-    except:
-        pass
+    except Exception as e:
+        print(f"Resend Error: {e}")
 
     # 2. COBA BREVO (Jika Resend Gagal)
     try:
@@ -31,10 +31,15 @@ def kirim_email_multi(subject, body):
             "subject": subject,
             "htmlContent": f"<p>{body}</p>"
         }
-        requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
-        return "Brevo"
-    except:
-        pass
+        response = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
+        
+        # Harus cek status code, karena requests tidak otomatis masuk 'except' kalau error 4xx/5xx
+        if response.status_code == 201:
+            return "Brevo"
+        else:
+            print(f"Brevo Failed: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"Brevo Exception: {e}")
 
     # 3. COBA ELASTIC EMAIL (Jika Resend & Brevo Gagal)
     try:
@@ -46,10 +51,16 @@ def kirim_email_multi(subject, body):
             "subject": subject,
             "bodyHtml": f"<p>{body}</p>"
         }
-        requests.get("https://api.elasticemail.com/v2/email/send", params=params)
-        return "Elastic"
-    except:
-        return None
+        response = requests.get("https://api.elasticemail.com/v2/email/send", params=params)
+        
+        if response.status_code == 200:
+            return "Elastic"
+        else:
+            print(f"Elastic Failed: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"Elastic Exception: {e}")
+        
+    return None
 
 @app.route('/api/send', methods=['POST'])
 def send_email():
