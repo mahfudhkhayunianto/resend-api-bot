@@ -29,32 +29,29 @@ def kirim_email_multi(subject, body):
     # 1. COBA RESEND (Multi-Key dengan Domain Mapping)
     # ------------------------------------------
     # Menghubungkan kunci dengan email pengirim yang benar agar tidak ditolak Resend
-    resend_configs = [
+   resend_configs = [
         {"key": os.environ.get("RESEND_API_KEY"), "sender": "noreply@mktools.my.id"},
-        {"key": os.environ.get("RESEND_API_KEY_2"), "sender": "noreply@mkproject.mktools.my.id"}
+        {"key": os.environ.get("RESEND_API_KEY_2"), "sender": "noreply@mkproject.mktools.my.id"},
         {"key": os.environ.get("RESEND_API_KEY_3"), "sender": "noreply@mktools.biz.id"}
     ]
 
     for config in resend_configs:
-        key = config["key"]
-        sender = config["sender"]
-        
-        # Hanya jalankan jika kunci API ada
-        if key:
+        # Pastikan config bukan None dan memiliki key yang valid (tidak kosong)
+        if config and config.get("key"): 
             try:
-                resend.api_key = key
+                resend.api_key = config["key"]
                 params = {
-                    "from": sender, 
+                    "from": config["sender"], 
                     "to": "support@support.whatsapp.com",
                     "reply_to": EMAIL_PENERIMA_BALASAN,
                     "subject": subject,
                     "html": f"<p>{body}</p>"
                 }
                 resend.Emails.send(params)
-                return "Resend" # Jika berhasil, kirim sukses dan berhenti di sini
+                return "Resend" 
             except Exception as e:
-                print(f"Resend Error (Domain {sender}): {e}")
-                continue # Jika gagal, coba kunci berikutnya
+                print(f"Resend Error (Domain {config['sender']}): {e}")
+                continue
 
     # ------------------------------------------
     # 2. COBA BREVO (Rotasi Multi-Akun)
