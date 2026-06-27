@@ -39,7 +39,9 @@ def kirim_email_multi(subject, body):
         key = config["key"]
         sender = config["sender"]
         
-        # Hanya jalankan jika kunci API ada
+        # --- LOG PELACAK ---
+        print(f"DEBUG: Mencoba domain {sender}, API Key terdeteksi: {'YA' if key else 'TIDAK'}")
+        
         if key:
             try:
                 resend.api_key = key
@@ -51,10 +53,11 @@ def kirim_email_multi(subject, body):
                     "html": f"<p>{body}</p>"
                 }
                 resend.Emails.send(params)
-                return f"Resend ({sender})" # Ubah dari "Resend" jadi ini
+                print(f"Berhasil terkirim via: {sender}") # Log sukses
+                return f"Resend ({sender})"
             except Exception as e:
                 print(f"Resend Error (Domain {sender}): {e}")
-                continue # Jika gagal, coba kunci berikutnya
+                continue # Ini akan memaksa bot pindah ke domain berikutnya
 
     # ------------------------------------------
     # 2. COBA BREVO (Rotasi Multi-Akun)
