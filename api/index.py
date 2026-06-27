@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # Fungsi Pengirim Email dengan Failover
 def kirim_email_multi(subject, body):
-    # 1. COBA RESEND (Domain Utama)
+    # 1. COBA RESEND (Domain Utama: mktools.my.id)
     try:
         resend.api_key = os.environ.get("RESEND_API_KEY")
         params = {
@@ -21,7 +21,7 @@ def kirim_email_multi(subject, body):
     except Exception as e:
         print(f"Resend Error: {e}")
 
-    # 2. COBA BREVO (Domain FIX)
+    # 2. COBA BREVO (Domain: fix.mktools.my.id)
     try:
         brevo_key = os.environ.get("BREVO_API_KEY")
         headers = {"api-key": brevo_key, "Content-Type": "application/json"}
@@ -32,7 +32,6 @@ def kirim_email_multi(subject, body):
             "htmlContent": f"<p>{body}</p>"
         }
         response = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
-        
         if response.status_code == 201:
             return "Brevo"
         else:
@@ -40,7 +39,7 @@ def kirim_email_multi(subject, body):
     except Exception as e:
         print(f"Brevo Exception: {e}")
 
-    # 3. COBA ELASTIC EMAIL (Domain Elastis)
+    # 3. COBA ELASTIC EMAIL (Domain: elastis.mktools.my.id)
     try:
         elastic_key = os.environ.get("ELASTIC_API_KEY")
         params = {
@@ -51,7 +50,6 @@ def kirim_email_multi(subject, body):
             "bodyHtml": f"<p>{body}</p>"
         }
         response = requests.get("https://api.elasticemail.com/v2/email/send", params=params)
-        
         if response.status_code == 200:
             return "Elastic"
         else:
@@ -64,18 +62,19 @@ def kirim_email_multi(subject, body):
 @app.route('/api/send', methods=['POST'])
 def send_email():
     data = request.json
+    # Mengambil data dari payload
     nomor = data.get('nomor', 'UNKNOWN')
     subject = data.get('subject', "Question about WhatsApp 'Login not available'")
     body = data.get('body', f"Banding untuk nomor: {nomor}")
     
+    # Eksekusi kirim
     hasil = kirim_email_multi(subject, body)
     
+    # Logging hasil ke Vercel Runtime Logs
     if hasil:
-        # LOG CUSTOM SESUAI PERMINTAAN BOSKU
         print(f"[{nomor}] Berhasil Terkirim -> {hasil}")
         return jsonify({"status": "success", "provider": hasil}), 200
     else:
-        # LOG CUSTOM JIKA SEMUA PROVIDER GAGAL
         print(f"[{nomor}] GAGAL Terkirim -> Semua provider error/limit")
         return jsonify({"status": "error", "message": "Semua provider gagal"}), 500
 
