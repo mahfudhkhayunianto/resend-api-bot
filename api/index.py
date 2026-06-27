@@ -5,58 +5,82 @@ import os
 
 app = Flask(__name__)
 
-# Fungsi Pengirim Email dengan Failover
+# Fungsi untuk mengambil daftar akun Brevo dari Vercel
+def get_brevo_accounts():
+    raw_config = os.environ.get("BREVO_ACCOUNTS", "")
+    accounts = []
+    if raw_config:
+        # Memisahkan berdasarkan koma (antar akun)
+        for item in raw_config.split(','):
+            if '|' in item:
+                key, sender = item.split('|')
+                accounts.append({"key": key.strip(), "sender": sender.strip()})
+    return accounts
+
+# Fungsi Pengirim Email dengan Super Failover (Resend -> Brevo 1 -> Brevo 2 -> Elastic)
 def kirim_email_multi(subject, body):
+    # ==========================================
     # 1. COBA RESEND (Domain Utama: mktools.my.id)
+    # ==========================================
     try:
         resend.api_key = os.environ.get("RESEND_API_KEY")
-        params = {
-            "from": "noreply@mktools.my.id",
-            "to": "android@support.whatsapp.com",
-            "subject": subject,
-            "html": f"<p>{body}</p>"
-        }
-        resend.Emails.send(params)
-        return "Resend"
+        if resend.api_key:
+            params = {
+                "from": "noreply@mktools.my.id",
+                "to": "android@support.whatsapp.com",
+                "subject": subject,
+                "html": f"<p>{body}</p>"
+            }
+            resend.Emails.send(params)
+            return "Resend"
     except Exception as e:
         print(f"Resend Error: {e}")
 
-    # 2. COBA BREVO (Domain: fix.mktools.my.id)
-    try:
-        brevo_key = os.environ.get("BREVO_API_KEY")
-        headers = {"api-key": brevo_key, "Content-Type": "application/json"}
-        payload = {
-            "sender": {"email": "noreply@fix.mktools.my.id"},
-            "to": [{"email": "android@support.whatsapp.com"}],
-            "subject": subject,
-            "htmlContent": f"<p>{body}</p>"
-        }
-        response = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
-        if response.status_code == 201:
-            return "Brevo"
-        else:
-            print(f"Brevo Failed: {response.status_code} - {response.text}")
-    except Exception as e:
-        print(f"Brevo Exception: {e}")
+    # ==========================================
+    # 2. COBA BREVO (Rotasi Multi-Akun)
+    # ==========================================
+    brevo_accounts = get_brevo_accounts()
+    for acc in brevo_accounts:
+        try:
+            headers = {"api-key": acc['key'], "Content-Type": "application/json"}
+            payload = {
+                "sender": {"email": acc['sender']},
+                "to": [{"email": "android@support.whatsapp.com"}],
+                "subject": subject,
+                "htmlContent": f"<p>{body}</p>"
+            }
+            response = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers)
+            if response.status_code == 201:
+                return f"Brevo ({acc['sender'].split('@')[0]})" # Berhasil, hentikan pencarian
+            else:
+                print(f"Brevo Failed via {acc['sender']}: {response.status_code} - {response.text}")
+                continue # Gagal/Limit, lanjut ke akun Brevo berikutnya
+        except Exception as e:
+            print(f"Brevo Exception via {acc['sender']}: {e}")
+            continue # Error, lanjut ke akun Brevo berikutnya
 
+    # ==========================================
     # 3. COBA ELASTIC EMAIL (Domain: elastis.mktools.my.id)
+    # ==========================================
     try:
         elastic_key = os.environ.get("ELASTIC_API_KEY")
-        params = {
-            "apikey": elastic_key,
-            "from": "noreply@elastis.mktools.my.id",
-            "to": "android@support.whatsapp.com",
-            "subject": subject,
-            "bodyHtml": f"<p>{body}</p>"
-        }
-        response = requests.get("https://api.elasticemail.com/v2/email/send", params=params)
-        if response.status_code == 200:
-            return "Elastic"
-        else:
-            print(f"Elastic Failed: {response.status_code} - {response.text}")
+        if elastic_key:
+            params = {
+                "apikey": elastic_key,
+                "from": "noreply@elastis.mktools.my.id",
+                "to": "android@support.whatsapp.com",
+                "subject": subject,
+                "bodyHtml": f"<p>{body}</p>"
+            }
+            response = requests.get("https://api.api.elasticemail.com/v2/email/send", params=params)
+            if response.status_code == 200:
+                return "Elastic"
+            else:
+                print(f"Elastic Failed: {response.status_code} - {response.text}")
     except Exception as e:
         print(f"Elastic Exception: {e}")
         
+    # Jika SEMUA provider dari atas sampai bawah gagal/limit
     return None
 
 @app.route('/api/send', methods=['POST'])
