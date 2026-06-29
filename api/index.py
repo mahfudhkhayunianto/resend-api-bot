@@ -18,7 +18,8 @@ def kirim_email_multi(subject, body):
         {"key": os.environ.get("RESEND_API_KEY_2"), "sender": "noreply@mkproject.mktools.my.id"},
         {"key": os.environ.get("RESEND_API_KEY_3"), "sender": "noreply@mktools.biz.id"},
         {"key": os.environ.get("RESEND_API_KEY_4"), "sender": "noreply@mkpro.biz.id"},
-        {"key": os.environ.get("RESEND_API_KEY_5"), "sender": "noreply@support.mkpro.biz.id"}
+        {"key": os.environ.get("RESEND_API_KEY_5"), "sender": "noreply@support.mkpro.biz.id"},
+        {"key": os.environ.get("RESEND_API_KEY_6"), "sender": "noreply@mkfixred.biz.id"}
     ]
 
     for config in resend_configs:
